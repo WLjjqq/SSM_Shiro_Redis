@@ -6,6 +6,7 @@ import com.shiro.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -25,6 +26,8 @@ public class UserController {
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
     @Autowired
     UserService userService;
+    @Autowired
+    RedisTemplate redisTemplate;
     @RequestMapping(value = {"/",""},method = RequestMethod.GET)
     public String shiro(){
         return "login";
@@ -49,15 +52,22 @@ public class UserController {
         if(null==account || null==pwd || account.isEmpty() || pwd.isEmpty()){
             return new Result(false,"用户名或者密码为空");
         }else {
-            User user = userService.select(account);
-            if(null==user){
-                return new Result(false,"对不起，数据库中没有这个人");
-            }else {
-                if(!pwd.equals(user.getPswd())){
-                    return new Result(false,"密码错误");
+            User user1 = (User) redisTemplate.opsForValue().get("user");
+            //从缓存中查询
+            if(null==user1){
+                User user = userService.select(account);
+                if(null==user){
+                    return new Result(false,"对不起，数据库中没有这个人");
+                }else {
+                    if(!pwd.equals(user.getPswd())){
+                        return new Result(false,"密码错误");
+                    }
+                    return new Result(true,user,"查有此人");
                 }
-                return new Result(true,user,"查有此人");
+            }else {
+                return new Result(true,user1,"查有此人");
             }
+
         }
     }
 }
